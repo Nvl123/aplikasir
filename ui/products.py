@@ -167,7 +167,7 @@ class Products(tk.Frame):
         form_frame = tk.Frame(panel, bg=COLORS['card'])
         form_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
-        # Barcode with auto-generate checkbox
+        # Barcode with auto-generate toggle switch
         barcode_frame = tk.Frame(form_frame, bg=COLORS['card'])
         barcode_frame.pack(fill='x', pady=8)
         
@@ -183,18 +183,35 @@ class Products(tk.Frame):
         )
         lbl.pack(side='left')
         
-        self.auto_barcode_var = tk.BooleanVar(value=True)
-        auto_barcode_cb = tk.Checkbutton(
-            barcode_label_frame,
-            text="Auto-generate",
-            variable=self.auto_barcode_var,
+        # Toggle switch container
+        switch_frame = tk.Frame(barcode_label_frame, bg=COLORS['card'])
+        switch_frame.pack(side='right')
+        
+        tk.Label(
+            switch_frame,
+            text="Auto",
             font=FONTS['small'],
             fg=COLORS['text_light'],
+            bg=COLORS['card']
+        ).pack(side='left', padx=(0, 5))
+        
+        # Custom toggle switch
+        self.auto_barcode_var = tk.BooleanVar(value=True)
+        self.switch_canvas = tk.Canvas(
+            switch_frame,
+            width=50,
+            height=26,
             bg=COLORS['card'],
-            selectcolor=COLORS['background'],
-            command=self._toggle_barcode_entry
+            highlightthickness=0,
+            cursor='hand2'
         )
-        auto_barcode_cb.pack(side='right')
+        self.switch_canvas.pack(side='left')
+        
+        # Draw initial switch state (ON)
+        self._draw_switch(True)
+        
+        # Bind click event
+        self.switch_canvas.bind('<Button-1>', self._on_switch_click)
         
         self.barcode_var = tk.StringVar()
         self.barcode_entry = tk.Entry(
@@ -358,8 +375,44 @@ class Products(tk.Frame):
         )
         self.category_combo.pack(fill='x', ipady=5)
     
+    def _draw_switch(self, is_on):
+        """Draw the toggle switch"""
+        self.switch_canvas.delete('all')
+        
+        # Background track
+        if is_on:
+            track_color = COLORS['primary']
+        else:
+            track_color = COLORS['border']
+        
+        # Draw rounded rectangle track
+        self.switch_canvas.create_oval(0, 0, 26, 26, fill=track_color, outline='')
+        self.switch_canvas.create_oval(24, 0, 50, 26, fill=track_color, outline='')
+        self.switch_canvas.create_rectangle(13, 0, 37, 26, fill=track_color, outline='')
+        
+        # Draw circle knob
+        if is_on:
+            knob_x = 35
+        else:
+            knob_x = 13
+        
+        self.switch_canvas.create_oval(
+            knob_x - 10, 3,
+            knob_x + 10, 23,
+            fill='white',
+            outline=''
+        )
+    
+    def _on_switch_click(self, event):
+        """Handle switch click"""
+        current = self.auto_barcode_var.get()
+        new_value = not current
+        self.auto_barcode_var.set(new_value)
+        self._draw_switch(new_value)
+        self._toggle_barcode_entry()
+    
     def _toggle_barcode_entry(self):
-        """Toggle barcode entry based on auto-generate checkbox"""
+        """Toggle barcode entry based on auto-generate switch"""
         if self.auto_barcode_var.get():
             self.barcode_entry.configure(state='disabled')
             self.barcode_var.set('')
@@ -423,6 +476,7 @@ class Products(tk.Frame):
             
             self.barcode_var.set(product['barcode'])
             self.auto_barcode_var.set(False)
+            self._draw_switch(False)
             self.barcode_entry.configure(state='normal')
             self.name_var.set(product['name'])
             self.category_var.set(product['category'])
@@ -438,6 +492,7 @@ class Products(tk.Frame):
         
         self.barcode_var.set("")
         self.auto_barcode_var.set(True)
+        self._draw_switch(True)
         self.barcode_entry.configure(state='disabled')
         self.name_var.set("")
         self.category_var.set("")
