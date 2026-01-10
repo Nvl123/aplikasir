@@ -1,0 +1,7 @@
+# Python dependencies for AplikasiR - Point of Sale Application
+
+# Core dependencies
+Pillow>=9.0.0
+
+# Optional: For building executable
+# pyinstaller>=5.0.0
