@@ -72,23 +72,54 @@ def generate_barcode(product_number):
 def format_currency_input(value):
     """Format number with thousand separator (Indonesian format: dot)
     
+    Handles two cases:
+    1. Database values like "25000.0" -> "25.000"
+    2. User typing with existing format "1.000" -> keeps working correctly
+    
     Args:
-        value: String input from entry field
+        value: String input from entry field or float/database value
     
     Returns:
         Formatted string with dots as thousand separators
     """
-    # Remove all non-digit characters
-    digits = ''.join(c for c in str(value) if c.isdigit())
+    str_value = str(value).strip()
+    
+    if not str_value:
+        return ''
+    
+    # Check if this looks like a database float value
+    # Database floats have format like "25000.0" or "1500.5" (one decimal place typically)
+    # Thousand-separated values look like "1.000" or "25.000" (dots every 3 digits)
+    # Key difference: database float has dot NOT at position that would be thousand separator
+    import re
+    
+    # Match pattern: digits, dot, 1-2 digits at end (typical float from database)
+    # But NOT if it looks like thousand separator (dot followed by exactly 3 digits before end or another dot)
+    if re.match(r'^\d+\.\d{1,2}$', str_value):
+        # This is likely a float from database (e.g., "25000.0" or "1500.50")
+        try:
+            num = int(float(str_value))
+            if num == 0:
+                return ''
+            return f"{num:,}".replace(",", ".")
+        except (ValueError, TypeError):
+            pass
+    
+    # For user input or already formatted values:
+    # Remove all dots (thousand separators) and extract digits
+    clean_value = str_value.replace(".", "")
+    digits = ''.join(c for c in clean_value if c.isdigit())
     
     if not digits:
         return ''
     
-    # Convert to integer and format with dots
     num = int(digits)
-    # Format with commas first, then replace with dots
-    formatted = f"{num:,}".replace(",", ".")
-    return formatted
+    
+    if num == 0:
+        return ''
+    
+    # Format with dots as thousand separator
+    return f"{num:,}".replace(",", ".")
 
 def parse_currency_input(value):
     """Parse formatted currency string back to float
