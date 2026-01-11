@@ -20,6 +20,7 @@ from ui.products import Products
 from ui.history import History
 from ui.settings import Settings
 from ui.report import Report
+from ui.profit_loss import ProfitLoss
 from ui.developer import Developer
 from ui.receipt import show_receipt
 
@@ -128,6 +129,9 @@ class KasirApp(tk.Tk):
         
         # Report
         self.pages['report'] = Report(self.content_frame)
+        
+        # Profit Loss
+        self.pages['profit_loss'] = ProfitLoss(self.content_frame)
         
         # Developer
         self.pages['developer'] = Developer(self.content_frame)

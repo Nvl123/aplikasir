@@ -102,6 +102,7 @@ class Sidebar(tk.Frame):
             ("products", "📦", "Produk"),
             ("history", "📋", "Riwayat"),
             ("report", "📈", "Rekap Bulanan"),
+            ("profit_loss", "💹", "Laba Rugi"),
             ("settings", "⚙️", "Pengaturan"),
             ("developer", "👨‍💻", "Developer"),
         ]
