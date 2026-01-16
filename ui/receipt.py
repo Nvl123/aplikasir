@@ -293,6 +293,8 @@ class Receipt(tk.Toplevel):
     
     def _generate_receipt_text(self):
         """Generate plain text receipt for 48mm thermal printer with ESC/POS formatting"""
+        import textwrap
+        
         t = self.transaction
         width = 32  # Characters width for 48mm thermal printer
         
@@ -313,29 +315,55 @@ class Receipt(tk.Toplevel):
         def fmt_num(n):
             return "{:,.0f}".format(float(n)).replace(",", ".")
         
-        # Helper: center text
+        # Helper: center text with wrapping
         def center(text):
-            text = text[:width]
-            return text.center(width)
+            text = str(text)
+            wrapped = textwrap.wrap(text, width)
+            return "\n".join(line.center(width) for line in wrapped)
         
         def line(char="-"):
             return char * width
         
         def left_right(left, right):
-            max_left = width - len(right) - 1
-            left = left[:max_left]
-            space = width - len(left) - len(right)
-            if space < 1:
-                space = 1
-            return f"{left}{' ' * space}{right}"
+            # If combining them fits
+            if len(left) + len(right) + 1 <= width:
+                space = width - len(left) - len(right)
+                return f"{left}{' ' * space}{right}"
+            
+            # If left is too long, wrap it
+            wrapped = textwrap.wrap(left, width)
+            # If the last line of wrapped text + right fits
+            if len(wrapped[-1]) + len(right) + 1 <= width:
+                result = wrapped[:-1]
+                last_line = wrapped[-1]
+                space = width - len(last_line) - len(right)
+                result.append(f"{last_line}{' ' * space}{right}")
+                return "\n".join(result)
+            else:
+                # Print wrapped text then right aligned on next line
+                result = wrapped
+                result.append(right.rjust(width))
+                return "\n".join(result)
         
         # Initialize printer
         lines.append(INIT)
         
         # Header - Bold and Double size, centered
-        lines.append(CENTER_ON + DOUBLE_ON + BOLD_ON)
-        lines.append(self.store_config.get('name', 'TOKO'))
-        lines.append(DOUBLE_OFF + BOLD_OFF)
+        # Double width = half characters per line (16)
+        header_name = self.store_config.get('name', 'TOKO').upper()
+        
+        # Custom wrapping for header (max 16 chars due to double width)
+        wrapped_header = textwrap.wrap(header_name, 16)
+        centered_header = "\n".join(line.center(16) for line in wrapped_header)
+        
+        # ESC ! n = Master Print Mode Select
+        # n = 0x38 (56) = Emphasized (8) + Double Height (16) + Double Width (32)
+        HEADER_STYLE = ESC + "!\x38"
+        NORMAL_STYLE = ESC + "!\x00"
+        
+        lines.append(CENTER_ON + HEADER_STYLE)
+        lines.append(centered_header)
+        lines.append(NORMAL_STYLE)
         
         # Address and phone - normal, centered
         addr = self.store_config.get('address', '')
@@ -368,10 +396,13 @@ class Receipt(tk.Toplevel):
                 items = []
         
         for item in items:
-            name = item['name'][:18]
+            name = item['name']
             lines.append(name)
+            
             qty_price = f" {item['qty']} x {fmt_num(item['price'])}"
             subtotal_str = fmt_num(item['subtotal'])
+            
+            # Indent qty_price slightly to visually separate from name
             lines.append(left_right(qty_price, subtotal_str))
         
         lines.append(line("-"))
@@ -401,8 +432,8 @@ class Receipt(tk.Toplevel):
         footer = self.store_config.get('footer', 'Terima kasih!')
         lines.append(center(footer))
         lines.append(LEFT_ON)
-        lines.append("")
-        lines.append("")
+        # Feed lines for manual tear-off if cutter command fails/not present
+        lines.append("\n\n")
         
         return "\n".join(lines)
     

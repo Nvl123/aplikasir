@@ -260,6 +260,24 @@ class TransactionDatabase:
             return True
         return False
     
+    def update(self, transaction_id, **kwargs):
+        """Update transaction by ID"""
+        transactions = self.get_all()
+        updated = False
+        
+        for i, t in enumerate(transactions):
+            if t['id'] == transaction_id:
+                for key, value in kwargs.items():
+                    if key in self.HEADERS:
+                        transactions[i][key] = str(value)
+                updated = True
+                break
+        
+        if updated:
+            self._write_all(transactions)
+        
+        return updated
+    
     def _write_all(self, transactions):
         """Write all transactions to CSV"""
         with open(self.file_path, 'w', newline='', encoding='utf-8') as f:

@@ -168,6 +168,15 @@ class History(tk.Frame):
         # Bind selection
         self.transaction_tree.bind('<<TreeviewSelect>>', self._on_select)
         self.transaction_tree.bind('<Double-1>', self._on_double_click)
+        self.transaction_tree.bind('<Button-3>', self._show_context_menu)  # Right click
+        self.transaction_tree.bind('<Delete>', lambda e: self._delete_transaction())
+        
+        # Context menu
+        self.context_menu = tk.Menu(self, tearoff=0)
+        self.context_menu.add_command(label="Cetak Struk", command=self._print_receipt)
+        self.context_menu.add_command(label="Edit Transaksi", command=self._edit_transaction)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="Hapus Transaksi", command=self._delete_transaction)
         
         # Load transactions
         self._apply_filter()
@@ -180,6 +189,49 @@ class History(tk.Frame):
         
         inner = tk.Frame(detail_frame, bg=COLORS['card'])
         inner.pack(fill='x', padx=20, pady=15)
+        
+        # Action buttons (Pack first to ensure visibility)
+        right = tk.Frame(inner, bg=COLORS['card'])
+        right.pack(side='right', padx=(20, 0))
+        
+        self.print_btn = tk.Button(
+            right,
+            text="🖨️ Cetak Struk",
+            font=FONTS['body_bold'],
+            fg='#64748B',
+            bg='#E2E8F0',
+            relief='flat',
+            cursor='arrow',
+            width=18,
+            command=self._print_receipt
+        )
+        self.print_btn.pack(pady=8, ipady=10, padx=10)
+        
+        self.edit_btn = tk.Button(
+            right,
+            text="✏️ Edit Transaksi",
+            font=FONTS['body_bold'],
+            fg='#64748B',
+            bg='#E2E8F0',
+            relief='flat',
+            cursor='arrow',
+            width=18,
+            command=self._edit_transaction
+        )
+        self.edit_btn.pack(pady=8, ipady=10, padx=10)
+        
+        self.delete_btn = tk.Button(
+            right,
+            text="🗑️ Hapus Transaksi",
+            font=FONTS['body_bold'],
+            fg='#64748B',
+            bg='#E2E8F0',
+            relief='flat',
+            cursor='arrow',
+            width=18,
+            command=self._delete_transaction
+        )
+        self.delete_btn.pack(pady=8, ipady=10, padx=10)
         
         # Detail left
         left = tk.Frame(inner, bg=COLORS['card'])
@@ -207,36 +259,6 @@ class History(tk.Frame):
             state='disabled'
         )
         self.items_text.pack(fill='x', pady=5)
-        
-        # Action buttons
-        right = tk.Frame(inner, bg=COLORS['card'])
-        right.pack(side='right', padx=(20, 0))
-        
-        self.print_btn = tk.Button(
-            right,
-            text="🖨️ Cetak Struk",
-            font=FONTS['body_bold'],
-            fg='#64748B',
-            bg='#E2E8F0',
-            relief='flat',
-            cursor='arrow',
-            width=18,
-            command=self._print_receipt
-        )
-        self.print_btn.pack(pady=8, ipady=10, padx=10)
-        
-        self.delete_btn = tk.Button(
-            right,
-            text="🗑️ Hapus Transaksi",
-            font=FONTS['body_bold'],
-            fg='#64748B',
-            bg='#E2E8F0',
-            relief='flat',
-            cursor='arrow',
-            width=18,
-            command=self._delete_transaction
-        )
-        self.delete_btn.pack(pady=8, ipady=10, padx=10)
     
     def _apply_filter(self):
         """Apply date filter and load transactions"""
@@ -252,7 +274,8 @@ class History(tk.Frame):
         
         total_sales = 0
         for t in transactions:
-            items_count = len(t.get('items_list', []))
+            # Fix: Sum quantity instead of count unique items
+            items_count = sum(item['qty'] for item in t.get('items_list', []))
             total = float(t['total'])
             total_sales += total
             
@@ -307,6 +330,7 @@ class History(tk.Frame):
             self.selected_transaction = transaction
             # Enable buttons with proper colors
             self.print_btn.configure(fg=COLORS['white'], bg=COLORS['primary'], cursor='hand2')
+            self.edit_btn.configure(fg=COLORS['white'], bg=COLORS['warning'], cursor='hand2')
             self.delete_btn.configure(fg=COLORS['white'], bg=COLORS['danger'], cursor='hand2')
             
             # Update detail label
@@ -348,6 +372,7 @@ class History(tk.Frame):
                 self.selected_transaction = None
                 # Reset buttons to inactive colors
                 self.print_btn.configure(fg='#64748B', bg='#E2E8F0', cursor='arrow')
+                self.edit_btn.configure(fg='#64748B', bg='#E2E8F0', cursor='arrow')
                 self.delete_btn.configure(fg='#64748B', bg='#E2E8F0', cursor='arrow')
                 self.detail_label.configure(text="Pilih transaksi untuk melihat detail")
                 self.items_text.configure(state='normal')
@@ -356,6 +381,118 @@ class History(tk.Frame):
             except Exception as e:
                 messagebox.showerror("Error", f"Gagal menghapus: {e}")
     
+    def _show_context_menu(self, event):
+        """Show value context menu"""
+        try:
+            item = self.transaction_tree.identify_row(event.y)
+            if item:
+                self.transaction_tree.selection_set(item)
+                self.context_menu.post(event.x_root, event.y_root)
+        except:
+            pass
+            
+    def _edit_transaction(self):
+        """Edit selected transaction"""
+        if not hasattr(self, 'selected_transaction') or not self.selected_transaction:
+            return
+            
+        t = self.selected_transaction
+        
+        # Dialog
+        dialog = tk.Toplevel(self)
+        dialog.title("Edit Transaksi")
+        dialog.geometry("400x450")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        # Center
+        dialog.update_idletasks()
+        x = (self.winfo_screenwidth() - 400) // 2
+        y = (self.winfo_screenheight() - 450) // 2
+        dialog.geometry(f"+{x}+{y}")
+        
+        # Form
+        p = tk.Frame(dialog, bg=COLORS['white'], padx=20, pady=20)
+        p.pack(fill='both', expand=True)
+        
+        # Info (Read only)
+        tk.Label(p, text=f"ID: {t['id']}", font=FONTS['body_bold'], bg=COLORS['white']).pack(anchor='w', pady=(0, 10))
+        tk.Label(p, text=f"Total: {format_currency(float(t['total']))}", font=FONTS['body_bold'], bg=COLORS['white']).pack(anchor='w', pady=(0, 20))
+        
+        # Date
+        tk.Label(p, text="Tanggal (YYYY-MM-DD):", font=FONTS['body'], bg=COLORS['white']).pack(anchor='w')
+        date_var = tk.StringVar(value=t['date'])
+        date_entry = tk.Entry(p, textvariable=date_var, font=FONTS['body'], width=30)
+        date_entry.pack(fill='x', pady=(5, 15))
+        
+        # Time
+        tk.Label(p, text="Waktu (HH:MM:SS):", font=FONTS['body'], bg=COLORS['white']).pack(anchor='w')
+        time_var = tk.StringVar(value=t['time'])
+        time_entry = tk.Entry(p, textvariable=time_var, font=FONTS['body'], width=30)
+        time_entry.pack(fill='x', pady=(5, 15))
+        
+        # Payment
+        tk.Label(p, text="Pembayaran:", font=FONTS['body'], bg=COLORS['white']).pack(anchor='w')
+        payment_var = tk.StringVar(value=str(int(float(t['payment']))))
+        payment_entry = tk.Entry(p, textvariable=payment_var, font=FONTS['body'], width=30)
+        payment_entry.pack(fill='x', pady=(5, 5))
+        
+        # Change preview
+        change_label = tk.Label(p, text=f"Kembali: {format_currency(float(t['change']))}", font=FONTS['body_bold'], bg=COLORS['white'], fg=COLORS['success'])
+        change_label.pack(anchor='w', pady=(0, 20))
+        
+        def update_change(*args):
+            try:
+                pay = float(payment_var.get())
+                tot = float(t['total'])
+                chg = pay - tot
+                change_label.configure(
+                    text=f"Kembali: {format_currency(chg)}",
+                    fg=COLORS['success'] if chg >= 0 else COLORS['danger']
+                )
+            except:
+                pass
+        
+        payment_var.trace('w', update_change)
+        
+        def save():
+            try:
+                new_date = date_var.get()
+                new_time = time_var.get()
+                new_pay = float(payment_var.get())
+                total = float(t['total'])
+                
+                if new_pay < total:
+                    messagebox.showerror("Error", "Pembayaran kurang!", parent=dialog)
+                    return
+                
+                new_change = new_pay - total
+                
+                # Update DB
+                self.transaction_db.update(
+                    t['id'],
+                    date=new_date,
+                    time=new_time,
+                    payment=str(new_pay),
+                    change=str(new_change)
+                )
+                
+                messagebox.showinfo("Sukses", "Transaksi berhasil diperbarui!", parent=dialog)
+                self._apply_filter()
+                dialog.destroy()
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Gagal menyimpan: {e}", parent=dialog)
+        
+        # Buttons
+        btn_frame = tk.Frame(p, bg=COLORS['white'])
+        btn_frame.pack(fill='x', side='bottom')
+        
+        tk.Button(btn_frame, text="Batal", command=dialog.destroy, font=FONTS['body'], bg='#E2E8F0', relief='flat').pack(side='left', fill='x', expand=True, padx=(0, 5))
+        tk.Button(btn_frame, text="Simpan", command=save, font=FONTS['body_bold'], bg=COLORS['primary'], fg='white', relief='flat').pack(side='left', fill='x', expand=True, padx=(5, 0))
+
     def refresh(self):
         """Refresh history view"""
         self._apply_filter()
+

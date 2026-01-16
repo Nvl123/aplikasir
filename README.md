@@ -42,7 +42,25 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## 📁 Struktur Folder
+## � Membangun File EXE
+
+Untuk membuat file executable (.exe) yang dapat dijalankan tanpa Python:
+
+1. Install PyInstaller:
+
+```bash
+pip install pyinstaller
+```
+
+2. Jalankan perintah build:
+
+```bash
+pyinstaller --name "AplikasiKasir" --onefile --windowed --add-data "assets;assets" main.py
+```
+
+File `.exe` akan muncul di folder `dist/`.
+
+## �📁 Struktur Folder
 
 ```
 APLIKASIR/
